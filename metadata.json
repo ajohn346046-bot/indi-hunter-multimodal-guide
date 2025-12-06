@@ -1,0 +1,8 @@
+{
+  "name": "INDI-HUNTER Multimodal Guide",
+  "description": "An AI assistant focused on Indigenous Traditional Knowledge, Natural Sciences, and AI literacy, embedded in a web-based chatbot.",
+  "requestFramePermissions": [
+    "microphone",
+    "camera"
+  ]
+}
