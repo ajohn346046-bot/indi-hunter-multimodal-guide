@@ -853,15 +853,31 @@ const App: React.FC = () => {
       >
         Save & Close
       </button>
-    </div>
-  </div>
+            <div className="mt-6 flex justify-end">
+          <button
+            onClick={() => setShowSettings(false)}
+            className="bg-teal-700 text-white px-4 py-2 rounded-lg text-sm hover:bg-teal-800 font-medium"
+          >
+            Save &amp; Close
+          </button>
+        </div>
 
-  {/* 原住民族智慧財產與資料著作權警語 */}
-  <div className="mt-4 text-[10px] leading-relaxed text-stone-500 text-center border-t border-stone-200 pt-2 px-4">
-    <p>
-      {`【原住民族智慧財產與資料著作權聲明】
-本系統呈現之多模態多媒體資料與對話內容（傳統醫療與夢境占卜內容）、圖檔內容、影像、文字等資訊內容，係為政府單位示範教學與研究用途，
-未經原作作者或資料提供者授權同意，不得以任何形式下載、重製、公開傳輸、改作或用於商業用途。`}
-    </p>
-  </div>
-</div>
+        {/* 原住民族智慧財產與著作權警語 */}
+        <div className="mt-4 text-[10px] leading-relaxed text-stone-500 text-center border-t border-stone-200 pt-2 px-4">
+          <p className="font-semibold">
+            原住民族智慧財產與著作權警語
+          </p>
+          <p>
+            本系統呈現之多模態與多載體智慧內容與傳統知識（傳統智慧與身心內容），
+            係由原住民族社群／受訪者及製作團隊共同提供，僅供教學與研究使用。
+          </p>
+          <p>
+            內容包含個人著作、影像、文字等智慧財產標的，未經原作者及相關權利人明示同意，
+            不得以任何形式下載、重製、截取、公開傳輸、改作或用於商業用途。
+          </p>
+        </div>
+      </div>
+    );
+};
+
+export default App;
