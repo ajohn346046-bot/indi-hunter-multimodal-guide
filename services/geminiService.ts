@@ -1,6 +1,6 @@
 // services/geminiService.ts
 
-// 從 Vite 的環境變數讀 API Key（在 GitHub 上是用 GEMINI_API_KEY secret 映射過來）
+// 從 Vite 的環境變數讀取 API Key（.env 裡的 VITE_GEMINI_API_KEY）
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
 
 if (!apiKey) {
@@ -9,122 +9,110 @@ if (!apiKey) {
   );
 }
 
-// ==== 型別定義（只在這個檔案裡用） ====
-
-export type ChatMessage = {
-  role: 'user' | 'model';
-  content: string;
-};
-
-export type KnowledgeFileRef = {
-  id: string;          // 之後如果你真的接上「上傳檔案」，可以用後端回傳的 id
-  displayName: string; // 顯示在 UI 上的名稱
-};
-
-// 這個型別大致對應 App 裡面用到的回應結構
-export type IndiResponse = {
-  ok: boolean;
-  answer?: string;
-  errorMessage?: string;
-  raw?: unknown;
-};
-
-// 把前端對話訊息轉成 Gemini API 需要的格式
-function toGeminiContents(messages: ChatMessage[]) {
-  return messages.map((m) => ({
-    role: m.role === 'user' ? 'user' : 'model',
-    parts: [{ text: m.content }],
-  }));
+// App.tsx 只需要這三個 export：
+export interface KnowledgeFileRef {
+  fileUri: string;
+  displayName: string;
 }
 
-// ==== 對 App.tsx 匯出的函式 ====
-
 /**
- * 主要聊天：送文字訊息給 Gemini，拿回模型回答
+ * 傳送對話訊息給 Gemini，回傳模型產生的純文字結果
+ * @param messages 來自 App.tsx 的訊息陣列（結構不拘，只要有 role + 文字）
  */
-export async function sendMessageToGemini(
-  messages: ChatMessage[],
-): Promise<IndiResponse> {
+export async function sendMessageToGemini(messages: any[]): Promise<string> {
+  // 1. 沒有 API Key：直接回傳一段友善提示文字
   if (!apiKey) {
-    // 這裡不要 throw，避免整個 React 掛掉
-    return {
-      ok: false,
-      errorMessage:
-        '系統尚未設定 Gemini API Key，因此目前無法連線到模型。',
-    };
+    return '系統尚未設定 Gemini API Key，因此無法連線到模型。請通知系統管理者。';
   }
 
+  // 2. 組 payload（盡量兼容不同訊息結構）
   const url =
     'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' +
     encodeURIComponent(apiKey);
 
   const payload = {
-    contents: toGeminiContents(messages),
+    contents: messages.map((m: any) => {
+      // 嘗試從多種欄位拿文字
+      const text = m.content ?? m.text ?? m.message ?? '';
+      // 把 assistant 統一轉成 Gemini 的 'model'
+      const role =
+        m.role === 'assistant'
+          ? 'model'
+          : m.role === 'user' || m.role === 'model'
+          ? m.role
+          : 'user';
+
+      return {
+        role,
+        parts: [{ text }],
+      };
+    }),
   };
 
   try {
-    const res = await fetch(url, {
+    // 3. 呼叫 Gemini HTTP API
+    const resp = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
 
-    if (!res.ok) {
-      const text = await res.text();
-      console.error('Gemini HTTP error:', res.status, text);
-      return {
-        ok: false,
-        errorMessage: `呼叫 Gemini API 失敗（HTTP ${res.status}）`,
-        raw: text,
-      };
+    const data = await resp.json();
+
+    // 4. 處理錯誤：這裡「完全不用 .map」，只抓錯誤訊息字串
+    if (!resp.ok) {
+      const errMsg =
+        (data && data.error && data.error.message) ||
+        `Gemini API 回傳錯誤（HTTP ${resp.status}）。`;
+      throw new Error(errMsg);
     }
 
-    const data: any = await res.json();
+    // 5. 從 candidates 裡把文字拼出來
+    const candidates = data.candidates ?? [];
+    const parts = candidates[0]?.content?.parts ?? [];
+    const text = parts.map((p: any) => p.text).join('\n').trim();
 
-    const answer =
-      data?.candidates?.[0]?.content?.parts
-        ?.map((p: any) => p.text ?? '')
-        .join('') ?? '';
-
-    return {
-      ok: true,
-      answer,
-      raw: data,
-    };
-  } catch (err) {
-    console.error('Gemini fetch error:', err);
-    return {
-      ok: false,
-      errorMessage: getFriendlyErrorMessage(err),
-    };
+    return text || '模型沒有回傳內容。';
+  } catch (error) {
+    console.error('[INDI-HUNTER] Gemini request failed:', error);
+    // 丟一個乾淨的 Error，讓 App.tsx 用 getFriendlyErrorMessage 顯示
+    throw new Error(getFriendlyErrorMessage(error));
   }
 }
 
 /**
- * 檔案上傳目前先做「假實作」：
- * - 讓 TypeScript / App.tsx 可以正常編譯
- * - 之後你要串真正的「上傳到 Google AI Studio / 其他後端」再改這裡就好
+ * 檔案上傳目前先給一個安全的 stub，
+ * 讓 App.tsx 可以編譯，但若點到檔案上傳會得到清楚的提示。
  */
 export async function uploadFileToGemini(
-  file: File,
+  _file: File,
 ): Promise<KnowledgeFileRef> {
-  console.warn(
-    '[INDI-HUNTER] uploadFileToGemini is a stub. The file is NOT really uploaded anywhere.',
-    file,
-  );
-
-  // 目前只是回傳一個假的 id，讓前端 UI 可以先跑起來
-  return {
-    id: `local-${Date.now()}`,
-    displayName: file.name,
-  };
+  throw new Error('目前線上版尚未開啟檔案上傳功能。');
 }
 
 /**
- * 把錯誤物件轉成比較友善的訊息
+ * 把各種型態的錯誤，轉成一行友善文字
  */
 export function getFriendlyErrorMessage(error: unknown): string {
-  if (typeof error === 'string') return error;
-  if (error instanceof Error) return error.message;
-  return '系統發生未預期錯誤，請稍後再試。';
+  // Error 物件
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  // 純字串
+  if (typeof error === 'string') {
+    return error;
+  }
+
+  // 嘗試從 { error: { message: ... } } 結構裡抓
+  try {
+    const anyErr = error as any;
+    if (anyErr?.error?.message) {
+      return anyErr.error.message;
+    }
+  } catch {
+    // ignore
+  }
+
+  return '發生未知錯誤，請稍後再試。';
 }
