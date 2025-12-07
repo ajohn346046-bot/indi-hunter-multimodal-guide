@@ -847,25 +847,18 @@ const App: React.FC = () => {
              </div>
 
                    <div className="mt-6 flex justify-end">
-        <button
-          onClick={() => setShowSettings(false)}
-          className="bg-teal-700 text-white px-4 py-2 rounded-lg text-sm hover:bg-teal-800 font-medium"
-        >
-          Save & Close
-        </button>
+                  <button
+            onClick={() => setShowSettings(false)}
+            className="bg-teal-700 text-white px-4 py-2 rounded-lg text-sm hover:bg-teal-800 font-medium"
+          >
+            Save & Close
+          </button>
+        </div>
       </div>
-    </div>
-  )}
-  
-  {/* 原住民族智慧財產與著作權警語 */}
-  <div className="mt-4 text-[10px] leading-relaxed text-stone-500 text-center border-t border-stone-200 pt-2 px-4">
-    【原住民族智慧財產與著作權聲明】本系統呈現之多模態原住民族傳統知識、口述內容、影音、
-    文字與個人著作，係經政府單位授權彙整，僅供教學與研究使用。未經原作者或資料提供單位
-    事前書面同意，不得以任何形式下載、重製、截錄、公開傳輸、改作或用於商業用途。
-  </div>
 
-</div>
-);
-};
-
-export default App;
+      {/* 原住民族智慧財產與著作權警語 */}
+      <div className="mt-4 text-[10px] leading-relaxed text-stone-500 text-center border-t border-stone-200 pt-2 px-4">
+        【原住民族智慧財產與著作權警語】本系統呈現之多模態多媒體內容與傳統知識（傳統醫療與夢占內容）、
+        口述內容、影像、文字等僅限入館、作為政府機構研究與學習使用。
+        未經原作者授權同意，不得以任何形式下載、重製、公開傳輸、改作或用於商業用途。
+      </div>
