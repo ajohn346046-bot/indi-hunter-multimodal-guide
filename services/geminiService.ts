@@ -94,6 +94,7 @@ export async function uploadFileToGemini(
  * 把各種型態的錯誤，轉成一行友善文字
  */
 // 統一把錯誤變成友善字串，不要直接 e.map(...)
+// 統一把錯誤變成友善字串，不要直接 e.map(...)
 export function getFriendlyErrorMessage(error: unknown): string {
   // 1. 什麼都沒有
   if (!error) {
