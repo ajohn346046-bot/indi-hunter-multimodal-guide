@@ -1,67 +1,130 @@
 // services/geminiService.ts
+
+// 從 Vite 的環境變數讀 API Key（在 GitHub 上是用 GEMINI_API_KEY secret 映射過來）
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
 
 if (!apiKey) {
   console.warn(
-    '[INDI-HUNTER] VITE_GEMINI_API_KEY is missing. The bot UI will load, but calls to Gemini will fail.'
+    '[INDI-HUNTER] VITE_GEMINI_API_KEY is missing. The bot UI will load, but calls to Gemini will fail.',
   );
 }
 
-type ChatMessage = {
+// ==== 型別定義（只在這個檔案裡用） ====
+
+export type ChatMessage = {
   role: 'user' | 'model';
   content: string;
 };
 
-export async function callGemini(messages: ChatMessage[]): Promise<string> {
+export type KnowledgeFileRef = {
+  id: string;          // 之後如果你真的接上「上傳檔案」，可以用後端回傳的 id
+  displayName: string; // 顯示在 UI 上的名稱
+};
+
+// 這個型別大致對應 App 裡面用到的回應結構
+export type IndiResponse = {
+  ok: boolean;
+  answer?: string;
+  errorMessage?: string;
+  raw?: unknown;
+};
+
+// 把前端對話訊息轉成 Gemini API 需要的格式
+function toGeminiContents(messages: ChatMessage[]) {
+  return messages.map((m) => ({
+    role: m.role === 'user' ? 'user' : 'model',
+    parts: [{ text: m.content }],
+  }));
+}
+
+// ==== 對 App.tsx 匯出的函式 ====
+
+/**
+ * 主要聊天：送文字訊息給 Gemini，拿回模型回答
+ */
+export async function sendMessageToGemini(
+  messages: ChatMessage[],
+): Promise<IndiResponse> {
   if (!apiKey) {
-    // 這裡只回傳錯誤字串，不要 throw，避免整個 React 掛掉
-    return '系統尚未設定 Gemini API Key，因此無法連線到模型。';
+    // 這裡不要 throw，避免整個 React 掛掉
+    return {
+      ok: false,
+      errorMessage:
+        '系統尚未設定 Gemini API Key，因此目前無法連線到模型。',
+    };
   }
 
   const url =
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' +
+    encodeURIComponent(apiKey);
 
   const payload = {
-    contents: messages.map((m) => ({
-      role: m.role === 'user' ? 'user' : 'model',
-      parts: [{ text: m.content }],
-    })),
+    contents: toGeminiContents(messages),
   };
 
-  const res = await fetch(`${url}?key=${apiKey}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
 
-  if (!res.ok) {
-    console.error('[INDI-HUNTER] Gemini API error:', await res.text());
-    return `呼叫 Gemini 失敗（HTTP ${res.status}）。請稍後再試。`;
+    if (!res.ok) {
+      const text = await res.text();
+      console.error('Gemini HTTP error:', res.status, text);
+      return {
+        ok: false,
+        errorMessage: `呼叫 Gemini API 失敗（HTTP ${res.status}）`,
+        raw: text,
+      };
+    }
+
+    const data: any = await res.json();
+
+    const answer =
+      data?.candidates?.[0]?.content?.parts
+        ?.map((p: any) => p.text ?? '')
+        .join('') ?? '';
+
+    return {
+      ok: true,
+      answer,
+      raw: data,
+    };
+  } catch (err) {
+    console.error('Gemini fetch error:', err);
+    return {
+      ok: false,
+      errorMessage: getFriendlyErrorMessage(err),
+    };
   }
-
-  const data = await res.json();
-  const text =
-    data.candidates?.[0]?.content?.parts?.[0]?.text ??
-    '模型沒有回傳內容。';
-
-  return text;
 }
 
-// ---- 暫時版：檔案上傳 stub，讓 App.tsx 可以編譯通過 ----
+/**
+ * 檔案上傳目前先做「假實作」：
+ * - 讓 TypeScript / App.tsx 可以正常編譯
+ * - 之後你要串真正的「上傳到 Google AI Studio / 其他後端」再改這裡就好
+ */
+export async function uploadFileToGemini(
+  file: File,
+): Promise<KnowledgeFileRef> {
+  console.warn(
+    '[INDI-HUNTER] uploadFileToGemini is a stub. The file is NOT really uploaded anywhere.',
+    file,
+  );
 
-// 如果你在別的地方已經有定義 KnowledgeFileRef，就不要重複宣告
-export type KnowledgeFileRef = {
-  id: string;
-  displayName: string;
-};
-
-export async function uploadFileToGemini(file: File): Promise<KnowledgeFileRef> {
-  // 目前 GitHub Pages 是純前端 demo，
-  // 我們先不真的呼叫 Gemini 的「檔案上傳」API，
-  // 只回傳一個假的 id＋檔名，讓 UI 可以正常運作。
-  console.warn('uploadFileToGemini is running in demo mode – file is not actually uploaded.');
+  // 目前只是回傳一個假的 id，讓前端 UI 可以先跑起來
   return {
     id: `local-${Date.now()}`,
     displayName: file.name,
   };
+}
+
+/**
+ * 把錯誤物件轉成比較友善的訊息
+ */
+export function getFriendlyErrorMessage(error: unknown): string {
+  if (typeof error === 'string') return error;
+  if (error instanceof Error) return error.message;
+  return '系統發生未預期錯誤，請稍後再試。';
 }
