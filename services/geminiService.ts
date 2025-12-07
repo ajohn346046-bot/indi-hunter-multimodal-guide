@@ -46,3 +46,22 @@ export async function callGemini(messages: ChatMessage[]): Promise<string> {
 
   return text;
 }
+
+// ---- 暫時版：檔案上傳 stub，讓 App.tsx 可以編譯通過 ----
+
+// 如果你在別的地方已經有定義 KnowledgeFileRef，就不要重複宣告
+export type KnowledgeFileRef = {
+  id: string;
+  displayName: string;
+};
+
+export async function uploadFileToGemini(file: File): Promise<KnowledgeFileRef> {
+  // 目前 GitHub Pages 是純前端 demo，
+  // 我們先不真的呼叫 Gemini 的「檔案上傳」API，
+  // 只回傳一個假的 id＋檔名，讓 UI 可以正常運作。
+  console.warn('uploadFileToGemini is running in demo mode – file is not actually uploaded.');
+  return {
+    id: `local-${Date.now()}`,
+    displayName: file.name,
+  };
+}
