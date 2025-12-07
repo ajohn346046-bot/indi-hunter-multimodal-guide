@@ -93,26 +93,59 @@ export async function uploadFileToGemini(
 /**
  * 把各種型態的錯誤，轉成一行友善文字
  */
+// 統一把錯誤變成友善字串，不要直接 e.map(...)
 export function getFriendlyErrorMessage(error: unknown): string {
-  // Error 物件
-  if (error instanceof Error) {
-    return error.message;
+  // 1. 什麼都沒有
+  if (!error) {
+    return '發生未知錯誤，請稍後再試。';
   }
 
-  // 純字串
+  // 2. 已經是字串
   if (typeof error === 'string') {
     return error;
   }
 
-  // 嘗試從 { error: { message: ... } } 結構裡抓
-  try {
-    const anyErr = error as any;
-    if (anyErr?.error?.message) {
-      return anyErr.error.message;
-    }
-  } catch {
-    // ignore
+  // 3. 一般的 Error 物件
+  if (error instanceof Error) {
+    return error.message || '發生錯誤，請稍後再試。';
   }
 
-  return '發生未知錯誤，請稍後再試。';
+  const anyErr = error as any;
+
+  // 4. 如果是陣列，就把每一個錯誤的 message 串起來
+  if (Array.isArray(anyErr)) {
+    const msgs = anyErr
+      .map((e: any) => e?.message || e?.error?.message || '')
+      .filter((m: string) => m && m.trim().length > 0);
+
+    if (msgs.length > 0) {
+      return msgs.join('\n');
+    }
+  }
+
+  // 5. 處理常見的 Gemini REST 回傳格式
+  if (typeof anyErr === 'object') {
+    // e.error.message
+    if (anyErr.error?.message) {
+      return anyErr.error.message;
+    }
+
+    // e.details 是陣列
+    if (Array.isArray(anyErr.details)) {
+      const msgs = anyErr.details
+        .map((d: any) => d?.error?.message || d?.message || '')
+        .filter((m: string) => m && m.trim().length > 0);
+
+      if (msgs.length > 0) {
+        return msgs.join('\n');
+      }
+    }
+  }
+
+  // 6. 最後保底：把整個物件 JSON 化
+  try {
+    return JSON.stringify(anyErr);
+  } catch {
+    return '發生未知錯誤，請稍後再試。';
+  }
 }
