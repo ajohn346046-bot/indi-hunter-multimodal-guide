@@ -18,6 +18,8 @@ const getClient = () => {
   return client;
 };
 
+console.log('[INDI-HUNTER] Gemini API key length =', (import.meta.env.VITE_GEMINI_API_KEY as string | '').length);
+
 export interface KnowledgeFileRef {
   uri: string;
   mimeType: string;
