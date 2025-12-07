@@ -33,7 +33,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
 
       # 用 npm install（你目前 repo 沒有 package-lock.json）
       - name: Install dependencies
