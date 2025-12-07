@@ -1,0 +1,56 @@
+name: Deploy static content to Pages
+
+on:
+  # main 分支有 push 就自動部署
+  push:
+    branches: ['main']
+  # 也可以在 Actions 頁面手動按「Run workflow」
+  workflow_dispatch:
+
+# 讓這個 workflow 有權限寫入 GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 避免同時有多個部署在跑
+concurrency:
+  group: 'pages'
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      # 用 npm install（你目前 repo 沒有 package-lock.json）
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
+      # ★ 只保留一次 id: deployment，避免你之前看到的錯誤
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
